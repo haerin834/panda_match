@@ -44,15 +44,15 @@
         <div class="control-buttons mt-4">
             <button id="btn-remove" class="btn btn-primary tool-button">
                 <i class="fas fa-arrow-up"></i>
-                <span>移出道具</span>
+                <span>Remove Tool</span>
             </button>
             <button id="btn-withdraw" class="btn btn-warning tool-button mx-3">
                 <i class="fas fa-undo"></i>
-                <span>撤回道具</span>
+                <span>Withdraw Tool</span>
             </button>
             <button id="btn-shuffle" class="btn btn-info tool-button">
                 <i class="fas fa-random"></i>
-                <span>洗牌道具</span>
+                <span>Shuffle Tool</span>
             </button>
         </div>
     </div>
@@ -61,7 +61,7 @@
 <div class="row">
     <div class="col-12 text-center">
         <a href="{% url 'abandon_game' session.session_id %}" class="btn btn-danger">
-            <i class="fas fa-times me-1"></i> 退出游戏
+            <i class="fas fa-times me-1"></i> Exit Game
         </a>
     </div>
 </div>
@@ -71,15 +71,15 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">关卡完成！</h5>
+                <h5 class="modal-title">level completed!</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                <h3>恭喜！</h3>
-                <p>您已完成此关卡，得分为 <span id="final-score">{{ session.score }}</span>！</p>
+                <h3>Congratulations!</h3>
+                <p>You have finished this level with a score of <span id="final-score">{{ session.score }}</span>！</p>
             </div>
             <div class="modal-footer">
-                <a href="{% url 'game_result' session.session_id %}" class="btn btn-primary">查看结果</a>
+                <a href="{% url 'game_result' session.session_id %}" class="btn btn-primary">View results</a>
             </div>
         </div>
     </div>
@@ -90,16 +90,16 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">移出道具</h5>
+                <h5 class="modal-title">Remove Tool</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="mb-3">
-                    <img src="https://via.placeholder.com/100" alt="移出道具" class="rounded-circle bg-dark">
+                    <img src="https://via.placeholder.com/100" alt="Remove Tool" class="rounded-circle bg-dark">
                 </div>
-                <p>移出三张牌并把他们堆放到旁边（后面还可以通过点击，转移回栅栏）。</p>
-                <button id="use-remove-tool" class="btn btn-primary">获取(1/1)</button>
-                <button class="btn btn-secondary" data-bs-dismiss="modal">不，谢谢</button>
+                <p>Remove three tiles and place them aside (you can click on them later to move them back to the fence).</p>
+                <button id="use-remove-tool" class="btn btn-primary">Use (1/1)</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">No, thanks</button>
             </div>
         </div>
     </div>
@@ -109,16 +109,16 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">撤回道具</h5>
+                <h5 class="modal-title">Withdraw Tool</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="mb-3">
-                    <img src="https://via.placeholder.com/100" alt="撤回道具" class="rounded-circle bg-dark">
+                    <img src="https://via.placeholder.com/100" alt="Withdraw Tool" class="rounded-circle bg-dark">
                 </div>
-                <p>撤回最近的一张牌并把他放到原位置。</p>
-                <button id="use-withdraw-tool" class="btn btn-primary">获取(1/1)</button>
-                <button class="btn btn-secondary" data-bs-dismiss="modal">不，谢谢</button>
+                <p>Withdraw the most recent tile and place it back to its original position.</p>
+                <button id="use-withdraw-tool" class="btn btn-primary">Use (1/1)</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">No, thanks</button>
             </div>
         </div>
     </div>
@@ -128,16 +128,16 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">洗牌道具</h5>
+                <h5 class="modal-title">Shuffle Tool</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
                 <div class="mb-3">
-                    <img src="https://via.placeholder.com/100" alt="洗牌道具" class="rounded-circle bg-dark">
+                    <img src="https://via.placeholder.com/100" alt="Shuffle Tool" class="rounded-circle bg-dark">
                 </div>
-                <p>随机打乱未使用的所有牌。</p>
-                <button id="use-shuffle-tool" class="btn btn-primary">获取(1/1)</button>
-                <button class="btn btn-secondary" data-bs-dismiss="modal">不，谢谢</button>
+                <p>Randomly shuffle all unused tiles.</p>
+                <button id="use-shuffle-tool" class="btn btn-primary">Use (1/1)</button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">No, thanks</button>
             </div>
         </div>
     </div>
@@ -174,9 +174,44 @@
         background-color: #ffffff;
         box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
         border: 2px solid rgba(255, 255, 255, 0.7);
-        transition: transform 0.2s;
+        transition: transform 0.2s, opacity 0.5s;
         text-align: center;
         font-size: 24px;
+        opacity: 1;
+    }
+    
+    .game-tile.new-accessible {
+        animation: fadeIn 0.5s;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    /* Add 3D stacking effect */
+    .game-tile.stacked:before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+        background-color: rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        z-index: -1;
+    }
+    
+    .game-tile.stacked:after {
+        content: '';
+        position: absolute;
+        top: -8px;
+        left: -8px;
+        right: -8px;
+        bottom: -8px;
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        z-index: -2;
     }
     
     .game-tile:hover {
@@ -194,24 +229,30 @@
         position: relative;
         width: 100%;
         height: 80px;
+        display: flex;
+        justify-content: center;
     }
     
     .fence-background {
         background-color: #8d6e63;
         height: 100%;
+        width: 430px; /* Same width as buffer-zone */
         border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: 0;
     }
     
     .buffer-zone {
         display: flex;
         gap: 8px;
         padding: 10px;
-        width: 95%;
+        /* Calculate width: 7 tiles (50px each) + 6 gaps (8px each) + padding (20px) */
+        width: 430px; /* 7*50 + 6*8 + 20 = 430px */
         height: 65px;
         align-items: center;
+        justify-content: flex-start;
     }
     
     .buffer-zone .game-tile {
@@ -224,11 +265,13 @@
     
     .removed-tiles-container {
         min-height: 60px;
+        width: 430px; /* 与fence-background宽度相同 */
         background-color: rgba(0, 0, 0, 0.1);
         border-radius: 10px;
         padding: 10px;
         display: flex;
         gap: 8px;
+        margin: 0 auto; /* 居中显示 */
     }
     
     .removed-tiles-container .game-tile {
@@ -274,8 +317,8 @@
     const sessionId = {{ session.session_id }};
     let boardData = {{ board|safe }};
     let accessibleTiles = {{ accessible_tiles|safe }};
-    let bufferData = []; // Start with empty buffer
-    let removedTiles = []; // Storage for removed tiles
+    let bufferData = {{ buffer|safe }}; // Initialize with buffer data from server
+    let removedTiles = {{ removed_tiles|safe }}; // Initialize with removed tiles data from server
     
     // Game elements
     const gameBoard = document.getElementById('game-board');
@@ -297,16 +340,64 @@
     // CSRF token for AJAX requests
     const csrfToken = '{{ csrf_token }}';
     
+    // 记录上一次的可访问方块位置
+    let previousAccessiblePositions = new Set();
+    
     // Initialize the game board
     function initializeBoard() {
-        // Clear the board
-        gameBoard.innerHTML = '';
+        console.log("Initializing game board");
         
-        // Add tiles to the board
+        // 记录当前游戏板上的方块
+        const currentTiles = {};
+        const tileElements = gameBoard.querySelectorAll('.game-tile');
+        
+        tileElements.forEach(element => {
+            const tileId = element.dataset.tileId;
+            currentTiles[tileId] = element;
+        });
+        
+        console.log("Current tiles on the game board:", Object.keys(currentTiles).length);
+        
+        // 获取当前可访问方块的位置
+        const currentAccessiblePositions = new Set();
         for (const key in accessibleTiles) {
             const tile = accessibleTiles[key];
-            createTileElement(tile, gameBoard);
+            const posKey = `${tile.x},${tile.y}`;
+            currentAccessiblePositions.add(posKey);
         }
+        
+        // 找出新增的可访问位置
+        const newAccessiblePositions = new Set();
+        for (const posKey of currentAccessiblePositions) {
+            if (!previousAccessiblePositions.has(posKey)) {
+                newAccessiblePositions.add(posKey);
+            }
+        }
+        
+        console.log("New accessible positions:", Array.from(newAccessiblePositions));
+        
+        // 清空游戏板
+        gameBoard.innerHTML = '';
+        
+        // 添加方块到游戏板
+        console.log("Adding accessible tiles to the game board, count:", Object.keys(accessibleTiles).length);
+        
+        for (const key in accessibleTiles) {
+            const tile = accessibleTiles[key];
+            const posKey = `${tile.x},${tile.y}`;
+            const isNewAccessible = newAccessiblePositions.has(posKey);
+            
+            const tileElement = createTileElement(tile, gameBoard);
+            
+            // 为新增的可访问方块添加动画效果
+            if (isNewAccessible) {
+                tileElement.classList.add('new-accessible');
+                console.log(`Adding animation effect to tile(${tile.x},${tile.y},${tile.layer})`);
+            }
+        }
+        
+        // 更新上一次的可访问位置
+        previousAccessiblePositions = currentAccessiblePositions;
     }
     
     // Update the buffer zone
@@ -334,10 +425,55 @@
             
             // Add click handler to return tile to buffer
             tileElement.addEventListener('click', () => {
-                // TODO: Implement returning removed tiles to buffer
-                alert('功能尚未实现: 将移除的牌返回栅栏');
+                returnRemovedTile(tile.id);
             });
         }
+    }
+    
+    // Return a removed tile to the buffer
+    function returnRemovedTile(tileId) {
+        // If buffer is full (7 slots), do nothing
+        if (bufferData.length >= 7) {
+            alert('The fence is full, cannot add more tiles');
+            return;
+        }
+        
+        // Send AJAX request to return the tile
+        fetch(`/game/action/${sessionId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                action: 'return_removed_tile',
+                tile_id: tileId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update buffer data
+                bufferData = data.buffer;
+                updateBuffer();
+                
+                // Update removed tiles
+                removedTiles = data.removed_tiles;
+                updateRemovedTiles();
+                
+                // 更新分数
+                scoreValue.textContent = data.score;
+                
+                // 检查游戏是否结束
+                if (data.game_over) {
+                    document.getElementById('final-score').textContent = data.score;
+                    setTimeout(() => {
+                        gameOverModal.show();
+                    }, 1000);
+                }
+            }
+        })
+        .catch(error => console.error('Error:', error));
     }
     
     // Create a tile element
@@ -346,6 +482,9 @@
         tileElement.classList.add('game-tile', `tile-${tile.type}`);
         tileElement.dataset.tileId = tile.id;
         tileElement.dataset.tileType = tile.type;
+        tileElement.dataset.x = tile.x;
+        tileElement.dataset.y = tile.y;
+        tileElement.dataset.layer = tile.layer;
         
         // Add icon based on tile type
         let icon = '';
@@ -382,6 +521,31 @@
             tileElement.style.top = `${tile.y * 60 + offsetY}px`;
             tileElement.style.zIndex = tile.layer;
             
+            // 检查这个位置是否有堆叠的方块
+            const stackCount = countStackedTiles(tile.x, tile.y);
+            if (stackCount > 1) {
+                // 添加堆叠效果的类
+                tileElement.classList.add('stacked');
+                
+                // 添加堆叠数量指示器
+                const stackIndicator = document.createElement('div');
+                stackIndicator.className = 'stack-indicator';
+                stackIndicator.textContent = stackCount;
+                stackIndicator.style.position = 'absolute';
+                stackIndicator.style.top = '2px';
+                stackIndicator.style.right = '2px';
+                stackIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                stackIndicator.style.color = 'white';
+                stackIndicator.style.borderRadius = '50%';
+                stackIndicator.style.width = '18px';
+                stackIndicator.style.height = '18px';
+                stackIndicator.style.fontSize = '12px';
+                stackIndicator.style.display = 'flex';
+                stackIndicator.style.alignItems = 'center';
+                stackIndicator.style.justifyContent = 'center';
+                tileElement.appendChild(stackIndicator);
+            }
+            
             // Add click handler for board tiles
             tileElement.addEventListener('click', () => selectTile(tile.id));
         }
@@ -396,8 +560,18 @@
     function selectTile(tileId) {
         // If buffer is full (7 slots), do nothing
         if (bufferData.length >= 7) {
-            alert('栅栏已满，无法添加更多方块');
+            alert('The fence is full, cannot add more tiles');
             return;
+        }
+        
+        // 记录选中前的可访问方块
+        console.log("Accessible tiles before selection:", Object.keys(accessibleTiles).length);
+        console.log("Accessible tiles before selection:", accessibleTiles);
+        
+        // 记录选中的方块信息
+        const selectedTile = accessibleTiles[Object.keys(accessibleTiles).find(key => accessibleTiles[key].id === tileId)];
+        if (selectedTile) {
+            console.log("Selected tile:", selectedTile);
         }
         
         // Send AJAX request to select the tile
@@ -417,15 +591,34 @@
             if (data.success) {
                 // 更新栅栏数据
                 bufferData = data.buffer;
-
                 console.log("Buffer data after update:", bufferData);
-
                 updateBuffer();
                 
                 // 更新分数
                 scoreValue.textContent = data.score;
                 
+                // 更新游戏板数据
+                if (data.board) {
+                    console.log("Game board data after selection:", data.board);
+                    boardData = data.board;
+                }
+                
                 // 更新可访问的方块
+                console.log("Accessible tiles after selection, count:", Object.keys(data.accessible_tiles).length);
+                console.log("Accessible tiles after selection:", data.accessible_tiles);
+                
+                // 找出新增的可访问方块
+                const beforeKeys = Object.keys(accessibleTiles);
+                const afterKeys = Object.keys(data.accessible_tiles);
+                const newKeys = afterKeys.filter(key => !beforeKeys.includes(key));
+                
+                if (newKeys.length > 0) {
+                    console.log("New accessible tiles count:", newKeys.length);
+                    for (const key of newKeys) {
+                        console.log("New accessible tile:", data.accessible_tiles[key]);
+                    }
+                }
+                
                 accessibleTiles = data.accessible_tiles;
                 initializeBoard();
                 
@@ -445,7 +638,7 @@
     function useRemoveTool() {
         // If buffer has less than 3 tiles, do nothing
         if (bufferData.length < 3) {
-            alert('栅栏中至少需要3个方块才能使用此道具');
+            alert('You need at least 3 tiles in the fence to use this tool');
             return;
         }
         
@@ -479,7 +672,7 @@
     function useWithdrawTool() {
         // If buffer is empty, do nothing
         if (bufferData.length === 0) {
-            alert('栅栏中没有方块，无法使用此道具');
+            alert('There are no tiles in the fence, cannot use this tool');
             return;
         }
         
@@ -500,6 +693,11 @@
                 // Update buffer data
                 bufferData = data.buffer;
                 updateBuffer();
+                
+                // 更新游戏板数据
+                if (data.board) {
+                    boardData = data.board;
+                }
                 
                 // Update accessible tiles
                 accessibleTiles = data.accessible_tiles;
@@ -525,6 +723,11 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // 更新游戏板数据
+                if (data.board) {
+                    boardData = data.board;
+                }
+                
                 // Update accessible tiles
                 accessibleTiles = data.accessible_tiles;
                 initializeBoard();
@@ -561,6 +764,33 @@
         useShuffleTool();
         shuffleToolModal.hide();
     });
+    
+    // 计算一个位置上堆叠的方块数量
+    function countStackedTiles(x, y) {
+        let count = 0;
+        let stackedTiles = [];
+        
+        for (const key in boardData) {
+            const [tileX, tileY, tileLayer] = key.split(',').map(Number);
+            if (tileX === x && tileY === y) {
+                count++;
+                stackedTiles.push({
+                    key: key,
+                    tile: boardData[key],
+                    layer: tileLayer
+                });
+            }
+        }
+        
+        // 按层级排序
+        stackedTiles.sort((a, b) => a.layer - b.layer);
+        
+        if (count > 1) {
+            console.log(`Position(${x},${y}) has ${count} stacked tiles:`, stackedTiles);
+        }
+        
+        return count;
+    }
     
     // Initialize the game when the page loads
     document.addEventListener('DOMContentLoaded', () => {

@@ -6,6 +6,7 @@ import json
 
 from .models import Level, GameSession, Tile, Move
 from .game_logic import GameBoard
+from leaderboard.views import update_leaderboards
 
 @login_required
 def game_home(request):
@@ -113,10 +114,12 @@ def play_game(request, session_id):
     context = {
         'player': player,
         'session': session,
-        'board': game_board.board,
-        'accessible_tiles': accessible_tiles,
+        'board': game_board.board,  # 传递完整的游戏板数据，用于计算堆叠高度
+        'accessible_tiles': accessible_tiles,  # 只有可访问的方块会被渲染
         'buffer': game_board.buffer,
-        'level': session.level
+        'removed_tiles': game_board.removed_tiles,
+        'level': session.level,
+        'difficulty': session.level.difficulty  # 传递难度级别
     }
     
     return render(request, 'game/play.html', context)
@@ -151,6 +154,22 @@ def game_action(request, session_id):
     # Handle different actions
     if action == 'select_tile':
         tile_id = data.get('tile_id')
+        
+        # 获取选中的方块信息
+        try:
+            selected_tile = Tile.objects.get(tile_id=tile_id, game_session=session)
+            print(f"选中的方块: ID={selected_tile.tile_id}, 位置=({selected_tile.position_x},{selected_tile.position_y},{selected_tile.layer}), 类型={selected_tile.tile_type}")
+        except Tile.DoesNotExist:
+            print(f"找不到方块: ID={tile_id}")
+        
+        # 获取选中前的可访问方块
+        before_accessible_tiles = {}
+        for key, tile in game_board.board.items():
+            x, y, layer = map(int, key.split(','))
+            if game_board.is_tile_accessible(x, y, layer):
+                before_accessible_tiles[key] = tile
+        print(f"选中前的可访问方块数量: {len(before_accessible_tiles)}")
+        
         success = game_board.select_tile(tile_id)
         
         if success:
@@ -160,6 +179,7 @@ def game_action(request, session_id):
             response['success'] = True
             response['buffer'] = game_board.buffer  # 确保返回完整的栅栏数据
             response['score'] = session.score
+            response['board'] = game_board.board  # 返回完整的游戏板数据
             
             # 获取更新后的可访问方块
             accessible_tiles = {}
@@ -167,6 +187,16 @@ def game_action(request, session_id):
                 x, y, layer = map(int, key.split(','))
                 if game_board.is_tile_accessible(x, y, layer):
                     accessible_tiles[key] = tile
+            
+            print(f"选中后的可访问方块数量: {len(accessible_tiles)}")
+            
+            # 找出新增的可访问方块
+            new_accessible_keys = set(accessible_tiles.keys()) - set(before_accessible_tiles.keys())
+            if new_accessible_keys:
+                print(f"新增的可访问方块: {len(new_accessible_keys)}")
+                for key in new_accessible_keys:
+                    tile = accessible_tiles[key]
+                    print(f"  新增可访问方块: 位置=({tile['x']},{tile['y']},{tile['layer']}), 类型={tile['type']}")
             
             response['accessible_tiles'] = accessible_tiles
             
@@ -181,6 +211,8 @@ def game_action(request, session_id):
             # 检查游戏是否结束
             if game_board.is_game_over():
                 game_board.complete_level()
+                # 更新排行榜
+                update_leaderboards(player, session.score)
                 response['game_over'] = True
     
     elif action == 'use_remove_tool':
@@ -198,7 +230,9 @@ def game_action(request, session_id):
             response['success'] = True
             response['buffer'] = game_board.buffer
             
-            # Get updated accessible tiles
+            # Get updated board and accessible tiles
+            response['board'] = game_board.board  # 返回完整的游戏板数据
+            
             accessible_tiles = {}
             for key, tile in game_board.board.items():
                 x, y, layer = map(int, key.split(','))
@@ -213,7 +247,9 @@ def game_action(request, session_id):
         if success:
             response['success'] = True
             
-            # Get updated accessible tiles
+            # Get updated board and accessible tiles
+            response['board'] = game_board.board  # 返回完整的游戏板数据
+            
             accessible_tiles = {}
             for key, tile in game_board.board.items():
                 x, y, layer = map(int, key.split(','))
@@ -224,9 +260,20 @@ def game_action(request, session_id):
     
     elif action == 'return_removed_tile':
         tile_id = data.get('tile_id')
-        # Implementation for returning removed tiles would go here
-        # This is an extra feature that could be added later
-        response['error'] = 'Not implemented yet'
+        success = game_board.return_removed_tile(tile_id)
+        
+        if success:
+            response['success'] = True
+            response['buffer'] = game_board.buffer
+            response['removed_tiles'] = game_board.removed_tiles
+            response['score'] = session.score
+            
+            # 检查游戏是否结束
+            if game_board.is_game_over():
+                game_board.complete_level()
+                # 更新排行榜
+                update_leaderboards(player, session.score)
+                response['game_over'] = True
     
     else:
         response['error'] = 'Invalid action'
@@ -246,6 +293,9 @@ def game_result(request, session_id):
         session.status = 'completed'
         session.end_time = timezone.now()
         session.save()
+        
+        # Update leaderboards with player's score
+        update_leaderboards(player, session.score)
     
     # Get statistics
     moves = Move.objects.filter(game_session=session).count()

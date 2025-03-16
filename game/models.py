@@ -8,7 +8,35 @@ class Level(models.Model):
     """
     level_id = models.AutoField(primary_key=True)
     difficulty = models.IntegerField(default=1)
-    tile_layout = models.JSONField(default=dict)  # Stores the initial board layout as JSON
+    tile_layout = models.JSONField(default=list)  # Stores the initial board layout as JSON
+    
+    def validate_tile_counts(self):
+        """
+        验证每种类型的方块数量是否为3的倍数
+        """
+        tile_counts = {}
+        layout = self.tile_layout
+        
+        # 统计每种类型方块的数量
+        for tile_info in layout:
+            tile_type = tile_info.get('type')
+            if tile_type:
+                tile_counts[tile_type] = tile_counts.get(tile_type, 0) + 1
+        
+        # 检查每种类型的方块数是否为3的倍数
+        invalid_types = []
+        for tile_type, count in tile_counts.items():
+            if count % 3 != 0:
+                invalid_types.append(f"{tile_type}({count})")
+        
+        if invalid_types:
+            raise ValueError(f"以下类型的方块数量不是3的倍数: {', '.join(invalid_types)}")
+        
+        return True
+    
+    def save(self, *args, **kwargs):
+        self.validate_tile_counts()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"Level {self.level_id} (Difficulty: {self.difficulty})"
@@ -31,6 +59,7 @@ class GameSession(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
     score = models.IntegerField(default=0)
     buffer = models.JSONField(default=list)  # 使用JSONField存储缓冲区数据
+    removed_tiles = models.JSONField(default=list)  # 使用JSONField存储移出的方块数据
     
     def __str__(self):
         return f"Session {self.session_id} - {self.player.user.username}"
@@ -72,6 +101,7 @@ class Move(models.Model):
         ('use_remove_tool', 'Use Remove Tool'),
         ('use_withdraw_tool', 'Use Withdraw Tool'),
         ('use_shuffle_tool', 'Use Shuffle Tool'),
+        ('return_removed_tile', 'Return Removed Tile'),
     ]
     
     move_id = models.AutoField(primary_key=True)
