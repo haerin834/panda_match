@@ -581,35 +581,10 @@
             // 获取底层方块数量 - 使用服务器返回的lower_tiles_count
             const lowerTilesCount = tile.lower_tiles_count !== undefined ? tile.lower_tiles_count : 0;
             
-            // 添加堆叠效果的类和指示器，不管有没有下层方块
-            if (true) {  // 改为始终显示堆叠指示器，没有下层方块时显示为1
+            // 仍保留堆叠效果的类，但不显示数字指示器
+            if (lowerTilesCount > 0) {
                 // 添加堆叠效果的类
                 tileElement.classList.add('stacked');
-                
-                // 添加堆叠数量指示器
-                const stackIndicator = document.createElement('div');
-                stackIndicator.className = 'stack-indicator';
-                // 堆叠数字表示当前方块加上底层方块的总数
-                stackIndicator.textContent = lowerTilesCount + 1; // 当前方块 + 底层方块数量
-                
-                console.log(`Tile at (${tile.x},${tile.y},${tile.layer}) has ${lowerTilesCount} tiles underneath. Total stack: ${lowerTilesCount + 1}`);
-                
-                stackIndicator.style.position = 'absolute';
-                stackIndicator.style.top = '2px';
-                stackIndicator.style.right = '2px';
-                stackIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                stackIndicator.style.color = 'white';
-                stackIndicator.style.borderRadius = '50%';
-                stackIndicator.style.width = '20px';
-                stackIndicator.style.height = '20px';
-                stackIndicator.style.fontSize = '14px';
-                stackIndicator.style.fontWeight = 'bold';
-                stackIndicator.style.display = 'flex';
-                stackIndicator.style.alignItems = 'center';
-                stackIndicator.style.justifyContent = 'center';
-                stackIndicator.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
-                stackIndicator.style.border = '1px solid white';
-                tileElement.appendChild(stackIndicator);
             }
             
             // 如果是新暴露的方块，添加特殊动画效果

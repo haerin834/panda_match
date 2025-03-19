@@ -1,5 +1,10 @@
 import os
+import sys
 from pathlib import Path
+
+sys.path.append('/home/Oliver2030/.local/lib/python3.13/site-packages')
+
+ALLOWED_HOSTS = ['oliver2030.eu.pythonanywhere.com']
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,8 +15,6 @@ SECRET_KEY = 'django-insecure-your-secret-key-here'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -20,11 +23,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Third-party apps
     'crispy_forms',
     'crispy_bootstrap4',
-    
+
     # Custom apps
     'accounts',
     'game',
