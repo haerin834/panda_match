@@ -60,7 +60,7 @@ class Command(BaseCommand):
         cols = min(8, 4 + level // 2)
         
         # 根据关卡等级确定堆叠层数
-        max_layers = min(5, 1 + level // 2)  # 随着关卡提升增加层数，最多5层
+        max_layers = min(8, 2 + level // 2)  # 随着关卡提升增加层数，最多8层
         
         # Available tile types
         tile_types = ['bamboo', 'leaf', 'panda', 'fish', 'carrot', 'fire']

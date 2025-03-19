@@ -308,6 +308,17 @@
     .tile-fish { background-color: #f6ae99; }
     .tile-carrot { background-color: #ffcd85; }
     .tile-fire { background-color: #ff9b93; }
+    
+    /* 新暴露方块的动画效果 */
+    .game-tile.newly-exposed {
+        animation: newlyExposed 1s ease;
+    }
+    
+    @keyframes newlyExposed {
+        0% { transform: scale(0.8); opacity: 0.5; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+    }
 </style>
 {% endblock %}
 
@@ -341,7 +352,33 @@
     const csrfToken = '{{ csrf_token }}';
     
     // 记录上一次的可访问方块位置
-    let previousAccessiblePositions = new Set();
+    let previousAccessiblePositions = new Map();
+    
+    // 检查服务器返回的数据，确保包含lower_tiles_count
+    console.log("初始加载的可访问方块数据:", accessibleTiles);
+    
+    // 确保每个可访问的方块都有lower_tiles_count属性
+    for (const key in accessibleTiles) {
+        const tile = accessibleTiles[key];
+        if (tile.lower_tiles_count === undefined) {
+            // 如果服务器没有提供lower_tiles_count，则计算一个默认值
+            let count = 0;
+            // 根据层级和位置查找所有可能的下层方块
+            for (let l = 0; l < tile.layer; l++) {
+                const lowerKey = `${tile.x},${tile.y},${l}`;
+                if (boardData[lowerKey]) {
+                    count++;
+                }
+            }
+            tile.lower_tiles_count = count;
+            console.log(`计算方块(${tile.x},${tile.y},${tile.layer})的下层方块数量: ${count}`);
+        }
+    }
+    
+    // 选中的方块ID，用于跟踪最后点击的方块
+    let lastSelectedTileId = null;
+    // 选中方块的位置，用于后续查找新暴露的方块
+    let lastSelectedPosition = null;
     
     // Initialize the game board
     function initializeBoard() {
@@ -358,18 +395,33 @@
         
         console.log("Current tiles on the game board:", Object.keys(currentTiles).length);
         
-        // 获取当前可访问方块的位置
-        const currentAccessiblePositions = new Set();
-        for (const key in accessibleTiles) {
-            const tile = accessibleTiles[key];
+        // 将accessibleTiles转换为数组以便一致处理
+        let accessibleTilesArray = Array.isArray(accessibleTiles) ? 
+            accessibleTiles : Object.values(accessibleTiles);
+        
+        console.log("可访问方块数组:", accessibleTilesArray.length);
+        
+        // 获取当前可访问方块的位置和层级
+        const currentAccessiblePositions = new Map();
+        for (const tile of accessibleTilesArray) {
             const posKey = `${tile.x},${tile.y}`;
-            currentAccessiblePositions.add(posKey);
+            
+            // 如果这个位置已经有方块，只保留最高层的
+            if (!currentAccessiblePositions.has(posKey) || 
+                currentAccessiblePositions.get(posKey).layer < tile.layer) {
+                currentAccessiblePositions.set(posKey, {
+                    layer: tile.layer,
+                    tile: tile
+                });
+            }
         }
         
-        // 找出新增的可访问位置
+        // 找出新增的可访问位置或层级变化的位置
         const newAccessiblePositions = new Set();
-        for (const posKey of currentAccessiblePositions) {
-            if (!previousAccessiblePositions.has(posKey)) {
+        for (const [posKey, data] of currentAccessiblePositions.entries()) {
+            // 如果位置是新的，或者层级变化了
+            if (!previousAccessiblePositions.has(posKey) || 
+                previousAccessiblePositions.get(posKey).layer !== data.layer) {
                 newAccessiblePositions.add(posKey);
             }
         }
@@ -380,19 +432,24 @@
         gameBoard.innerHTML = '';
         
         // 添加方块到游戏板
-        console.log("Adding accessible tiles to the game board, count:", Object.keys(accessibleTiles).length);
+        console.log("Adding accessible tiles to the game board, count:", accessibleTilesArray.length);
         
-        for (const key in accessibleTiles) {
-            const tile = accessibleTiles[key];
+        for (const tile of accessibleTilesArray) {
             const posKey = `${tile.x},${tile.y}`;
             const isNewAccessible = newAccessiblePositions.has(posKey);
             
-            const tileElement = createTileElement(tile, gameBoard);
+            // 检查这个方块是否是这个位置的最高层
+            const isTopLayer = currentAccessiblePositions.get(posKey).tile.id === tile.id;
             
-            // 为新增的可访问方块添加动画效果
-            if (isNewAccessible) {
-                tileElement.classList.add('new-accessible');
-                console.log(`Adding animation effect to tile(${tile.x},${tile.y},${tile.layer})`);
+            // 只渲染最高层的可访问方块
+            if (isTopLayer) {
+                const tileElement = createTileElement(tile, gameBoard);
+                
+                // 为新增的可访问方块添加动画效果
+                if (isNewAccessible) {
+                    tileElement.classList.add('new-accessible');
+                    console.log(`Adding animation effect to tile(${tile.x},${tile.y},${tile.layer})`);
+                }
             }
         }
         
@@ -521,29 +578,44 @@
             tileElement.style.top = `${tile.y * 60 + offsetY}px`;
             tileElement.style.zIndex = tile.layer;
             
-            // 检查这个位置是否有堆叠的方块
-            const stackCount = countStackedTiles(tile.x, tile.y);
-            if (stackCount > 1) {
+            // 获取底层方块数量 - 使用服务器返回的lower_tiles_count
+            const lowerTilesCount = tile.lower_tiles_count !== undefined ? tile.lower_tiles_count : 0;
+            
+            // 添加堆叠效果的类和指示器，不管有没有下层方块
+            if (true) {  // 改为始终显示堆叠指示器，没有下层方块时显示为1
                 // 添加堆叠效果的类
                 tileElement.classList.add('stacked');
                 
                 // 添加堆叠数量指示器
                 const stackIndicator = document.createElement('div');
                 stackIndicator.className = 'stack-indicator';
-                stackIndicator.textContent = stackCount;
+                // 堆叠数字表示当前方块加上底层方块的总数
+                stackIndicator.textContent = lowerTilesCount + 1; // 当前方块 + 底层方块数量
+                
+                console.log(`Tile at (${tile.x},${tile.y},${tile.layer}) has ${lowerTilesCount} tiles underneath. Total stack: ${lowerTilesCount + 1}`);
+                
                 stackIndicator.style.position = 'absolute';
                 stackIndicator.style.top = '2px';
                 stackIndicator.style.right = '2px';
-                stackIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                stackIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
                 stackIndicator.style.color = 'white';
                 stackIndicator.style.borderRadius = '50%';
-                stackIndicator.style.width = '18px';
-                stackIndicator.style.height = '18px';
-                stackIndicator.style.fontSize = '12px';
+                stackIndicator.style.width = '20px';
+                stackIndicator.style.height = '20px';
+                stackIndicator.style.fontSize = '14px';
+                stackIndicator.style.fontWeight = 'bold';
                 stackIndicator.style.display = 'flex';
                 stackIndicator.style.alignItems = 'center';
                 stackIndicator.style.justifyContent = 'center';
+                stackIndicator.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+                stackIndicator.style.border = '1px solid white';
                 tileElement.appendChild(stackIndicator);
+            }
+            
+            // 如果是新暴露的方块，添加特殊动画效果
+            if (tile.isNewlyExposed) {
+                tileElement.classList.add('newly-exposed');
+                console.log(`添加特殊动画效果到新暴露的方块: 位置=(${tile.x},${tile.y},${tile.layer})`);
             }
             
             // Add click handler for board tiles
@@ -556,22 +628,30 @@
         return tileElement;
     }
     
+    function getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+
     // Select a tile
     function selectTile(tileId) {
-        // If buffer is full (7 slots), do nothing
-        if (bufferData.length >= 7) {
-            alert('The fence is full, cannot add more tiles');
-            return;
-        }
+        console.log("选择方块:", tileId);
         
-        // 记录选中前的可访问方块
-        console.log("Accessible tiles before selection:", Object.keys(accessibleTiles).length);
-        console.log("Accessible tiles before selection:", accessibleTiles);
+        // 记录选择前的可访问方块数量
+        console.log("选择前可访问方块数:", Object.keys(accessibleTiles).length);
         
         // 记录选中的方块信息
         const selectedTile = accessibleTiles[Object.keys(accessibleTiles).find(key => accessibleTiles[key].id === tileId)];
         if (selectedTile) {
             console.log("Selected tile:", selectedTile);
+            console.log(`选中的方块下层有${selectedTile.lower_tiles_count}个方块`);
+            
+            // 记录选中的方块位置，用于后续查找
+            lastSelectedTileId = tileId;
+            lastSelectedPosition = {
+                x: selectedTile.x,
+                y: selectedTile.y,
+                layer: selectedTile.layer
+            };
         }
         
         // Send AJAX request to select the tile
@@ -596,7 +676,7 @@
                 
                 // 更新分数
                 scoreValue.textContent = data.score;
-                
+
                 // 更新游戏板数据
                 if (data.board) {
                     console.log("Game board data after selection:", data.board);
@@ -605,17 +685,34 @@
                 
                 // 更新可访问的方块
                 console.log("Accessible tiles after selection, count:", Object.keys(data.accessible_tiles).length);
-                console.log("Accessible tiles after selection:", data.accessible_tiles);
                 
-                // 找出新增的可访问方块
-                const beforeKeys = Object.keys(accessibleTiles);
-                const afterKeys = Object.keys(data.accessible_tiles);
-                const newKeys = afterKeys.filter(key => !beforeKeys.includes(key));
+                // 检查是否有新的可访问方块，特别是在我们刚刚点击的位置
+                let foundNewTilesAtLastPosition = false;
+                if (lastSelectedPosition) {
+                    for (const key in data.accessible_tiles) {
+                        const tile = data.accessible_tiles[key];
+                        // 查找与刚刚点击方块位置相同但层级不同的方块
+                        if (tile.x === lastSelectedPosition.x && 
+                            tile.y === lastSelectedPosition.y && 
+                            tile.layer < lastSelectedPosition.layer) {
+                            console.log(`发现下层方块: 位置=(${tile.x},${tile.y},${tile.layer}), 类型=${tile.type}`);
+                            foundNewTilesAtLastPosition = true;
+                            
+                            // 给这个新暴露的方块添加特殊动画效果
+                            tile.isNewlyExposed = true;
+                        }
+                    }
+                    
+                    if (!foundNewTilesAtLastPosition && lastSelectedPosition.layer > 0) {
+                        console.log(`警告：未发现(${lastSelectedPosition.x},${lastSelectedPosition.y})位置的下层方块，虽然层级为${lastSelectedPosition.layer}`);
+                    }
+                }
                 
-                if (newKeys.length > 0) {
-                    console.log("New accessible tiles count:", newKeys.length);
-                    for (const key of newKeys) {
-                        console.log("New accessible tile:", data.accessible_tiles[key]);
+                // 更新堆叠计数
+                for (const key in data.accessible_tiles) {
+                    const tile = data.accessible_tiles[key];
+                    if (typeof tile.lower_tiles_count !== 'undefined') {
+                        console.log(`方块(${tile.x},${tile.y},${tile.layer})的下层方块数量: ${tile.lower_tiles_count}`);
                     }
                 }
                 
@@ -629,6 +726,10 @@
                         gameOverModal.show();
                     }, 1000);
                 }
+                
+                // 重置选中状态
+                lastSelectedTileId = null;
+                lastSelectedPosition = null;
             }
         })
         .catch(error => console.error('Error:', error));
@@ -765,37 +866,45 @@
         shuffleToolModal.hide();
     });
     
-    // 计算一个位置上堆叠的方块数量
+    // 使用countStackedTiles函数获取一个位置上的方块总数（保留兼容性）
     function countStackedTiles(x, y) {
         let count = 0;
-        let stackedTiles = [];
         
+        // 收集该位置的所有方块
         for (const key in boardData) {
             const [tileX, tileY, tileLayer] = key.split(',').map(Number);
             if (tileX === x && tileY === y) {
                 count++;
-                stackedTiles.push({
-                    key: key,
-                    tile: boardData[key],
-                    layer: tileLayer
-                });
             }
-        }
-        
-        // 按层级排序
-        stackedTiles.sort((a, b) => a.layer - b.layer);
-        
-        if (count > 1) {
-            console.log(`Position(${x},${y}) has ${count} stacked tiles:`, stackedTiles);
         }
         
         return count;
     }
     
-    // Initialize the game when the page loads
+    // 获取一个位置的底层方块数量 - 这个函数可以保留，但不再使用
+    function getLowerTilesCount(x, y, layer) {
+        let count = 0;
+        
+        // 收集该位置的所有底层方块
+        for (const key in boardData) {
+            const [tileX, tileY, tileLayer] = key.split(',').map(Number);
+            if (tileX === x && tileY === y && tileLayer < layer) {
+                count++;
+            }
+        }
+        
+        return count;
+    }
+    
+    // 初始化游戏
     document.addEventListener('DOMContentLoaded', () => {
+        // 初始化游戏板
         initializeBoard();
+        
+        // 初始化栅栏
         updateBuffer();
+        
+        // 初始化已移除方块区域
         updateRemovedTiles();
     });
 </script>

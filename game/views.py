@@ -83,6 +83,9 @@ def start_game(request, level_id):
         status='active'
     )
     
+    # 确保清除旧的方块数据
+    Tile.objects.filter(game_session=session).delete()
+    
     # Initialize the game board
     game_board = GameBoard(session)
     game_board.initialize_board()
@@ -109,7 +112,12 @@ def play_game(request, session_id):
     for key, tile in game_board.board.items():
         x, y, layer = map(int, key.split(','))
         if game_board.is_tile_accessible(x, y, layer):
-            accessible_tiles[key] = tile
+            # 复制一份tile数据，避免修改原始数据
+            tile_data = tile.copy()
+            # 添加下层方块数量信息
+            lower_tiles_count = game_board.get_lower_tiles_count(x, y, layer)
+            tile_data['lower_tiles_count'] = lower_tiles_count
+            accessible_tiles[key] = tile_data
         
     context = {
         'player': player,
@@ -186,7 +194,12 @@ def game_action(request, session_id):
             for key, tile in game_board.board.items():
                 x, y, layer = map(int, key.split(','))
                 if game_board.is_tile_accessible(x, y, layer):
-                    accessible_tiles[key] = tile
+                    # 复制一份tile数据，避免修改原始数据
+                    tile_data = tile.copy()
+                    # 添加下层方块数量信息
+                    lower_tiles_count = game_board.get_lower_tiles_count(x, y, layer)
+                    tile_data['lower_tiles_count'] = lower_tiles_count
+                    accessible_tiles[key] = tile_data
             
             print(f"选中后的可访问方块数量: {len(accessible_tiles)}")
             
@@ -233,11 +246,27 @@ def game_action(request, session_id):
             # Get updated board and accessible tiles
             response['board'] = game_board.board  # 返回完整的游戏板数据
             
+            # 获取移除前不可访问的方块
+            inaccessible_before = set()
+            for board_key, board_tile in game_board.board.items():
+                x, y, layer = map(int, board_key.split(','))
+                if not game_board.is_tile_accessible(x, y, layer):
+                    inaccessible_before.add(board_key)
+            
+            # 重新检查所有方块的可访问性
             accessible_tiles = {}
             for key, tile in game_board.board.items():
                 x, y, layer = map(int, key.split(','))
                 if game_board.is_tile_accessible(x, y, layer):
-                    accessible_tiles[key] = tile
+                    # 复制一份tile数据，避免修改原始数据
+                    tile_data = tile.copy()
+                    # 添加下层方块数量信息
+                    lower_tiles_count = game_board.get_lower_tiles_count(x, y, layer)
+                    tile_data['lower_tiles_count'] = lower_tiles_count
+                    accessible_tiles[key] = tile_data
+                    # 如果方块之前不可访问但现在可访问，标记为新可访问
+                    if key in inaccessible_before:
+                        print(f"方块现在可访问: ID={tile['id']}, 位置=({x},{y},{layer}), 类型={tile['type']}")
             
             response['accessible_tiles'] = accessible_tiles
     
@@ -250,11 +279,27 @@ def game_action(request, session_id):
             # Get updated board and accessible tiles
             response['board'] = game_board.board  # 返回完整的游戏板数据
             
+            # 获取移除前不可访问的方块
+            inaccessible_before = set()
+            for board_key, board_tile in game_board.board.items():
+                x, y, layer = map(int, board_key.split(','))
+                if not game_board.is_tile_accessible(x, y, layer):
+                    inaccessible_before.add(board_key)
+            
+            # 重新检查所有方块的可访问性
             accessible_tiles = {}
             for key, tile in game_board.board.items():
                 x, y, layer = map(int, key.split(','))
                 if game_board.is_tile_accessible(x, y, layer):
-                    accessible_tiles[key] = tile
+                    # 复制一份tile数据，避免修改原始数据
+                    tile_data = tile.copy()
+                    # 添加下层方块数量信息
+                    lower_tiles_count = game_board.get_lower_tiles_count(x, y, layer)
+                    tile_data['lower_tiles_count'] = lower_tiles_count
+                    accessible_tiles[key] = tile_data
+                    # 如果方块之前不可访问但现在可访问，标记为新可访问
+                    if key in inaccessible_before:
+                        print(f"方块现在可访问: ID={tile['id']}, 位置=({x},{y},{layer}), 类型={tile['type']}")
             
             response['accessible_tiles'] = accessible_tiles
     

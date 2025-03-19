@@ -55,180 +55,149 @@ class GameBoard:
     
     def initialize_board(self, rows=5, cols=5, layers=None):
         """
-        Create a new game board with stacked tiles
+        Initialize the game board based on level configuration
         """
-        # Clear any existing tiles
+        print(f"初始化游戏板，关卡={self.level.level_id}，难度={self.level.difficulty}")
+        
+        # 清空所有现有方块
         Tile.objects.filter(game_session=self.game_session).delete()
         
-        # 根据关卡难度确定层数
-        if layers is None:
-            # 基础层数为3，每增加一个难度级别，增加1层
-            layers = 3 + (self.level.difficulty - 1)
-            # 确保最少有3层，最多有8层
-            layers = max(3, min(8, layers))
+        # 获取方块配置
+        level_tiles = self.level.tile_layout
         
-        # Generate new tiles with proper distribution
-        board = {}
-        tile_types = self.TILE_TYPES
-        
-        # 检查关卡是否有预定义的布局
-        print(f"关卡ID: {self.level.level_id}, 难度: {self.level.difficulty}")
-        print(f"关卡是否有tile_layout属性: {hasattr(self.level, 'tile_layout')}")
-        print(f"关卡tile_layout是否有值: {bool(self.level.tile_layout) if hasattr(self.level, 'tile_layout') else False}")
-        
-        if hasattr(self.level, 'tile_layout') and self.level.tile_layout:
-            # 使用预定义的布局
-            print(f"使用预定义的布局，共 {len(self.level.tile_layout)} 个方块")
+        # 如果关卡配置为空，使用默认配置
+        if not level_tiles:
+            # 基于难度生成随机方块类型
+            difficulty = self.level.difficulty
+            num_tiles = 36 + (difficulty - 1) * 12  # 难度 1: 36 方块, 难度 2: 48 方块, etc.
             
-            # 统计每种类型的方块数量
-            type_counts = {}
-            for tile_info in self.level.tile_layout:
-                tile_type = tile_info['type']
-                type_counts[tile_type] = type_counts.get(tile_type, 0) + 1
+            # 确保方块数量是 3 的倍数
+            if num_tiles % 3 != 0:
+                num_tiles += 3 - (num_tiles % 3)
             
-            print("预定义布局中各类型方块数量:")
-            for tile_type, count in type_counts.items():
-                print(f"  {tile_type}: {count} 个 ({count % 3 == 0 and '是' or '不是'}3的倍数)")
+            # 随机生成方块
+            tile_types = []
+            for i in range(num_tiles // 3):
+                tile_type = random.choice(list(dict(Tile.TILE_TYPES).keys()))
+                # 每个类型重复3次（以便有机会匹配）
+                tile_types.extend([tile_type] * 3)
             
-            # 创建方块并添加到游戏板
-            for tile_info in self.level.tile_layout:
+            # 如果有随机洗牌，打乱方块顺序
+            random.shuffle(tile_types)
+            
+            # 处理层级
+            if not layers:
+                # 根据难度设置层数
+                # 难度1：1层，难度2：1-2层，难度3：1-3层，难度4：1-4层，难度5：1-5层
+                max_layer = min(5, difficulty)
+                
+                # 创建堆叠方块的规则：
+                # 1. 确定有多少个位置会有堆叠方块
+                # 2. 对于这些位置，随机生成1-3个堆叠高度
+                # 3. 生成连续的层级，确保不会有"空洞"
+                stacked_positions = int(num_tiles * 0.3)  # 30%的位置会有堆叠方块
+                max_stack_height = max_layer
+                
+                # 创建基础位置（所有方块的底层）
+                positions = []
+                base_positions = []
+                for i in range(num_tiles - stacked_positions):
+                    x = random.randint(0, rows - 1)
+                    y = random.randint(0, cols - 1)
+                    base_positions.append((x, y))
+                    positions.append((x, y, 0))  # 底层方块，层级为0
+                
+                # 为一些位置添加堆叠方块（随机选择一些已有的位置）
+                if stacked_positions > 0 and base_positions:
+                    for _ in range(stacked_positions):
+                        # 随机选择一个已存在的底层位置
+                        idx = random.randint(0, len(base_positions) - 1)
+                        x, y = base_positions[idx]
+                        
+                        # 确定堆叠高度（1-3个额外方块，加上底层方块）
+                        stack_height = min(max_stack_height, random.randint(1, 3))
+                        
+                        # 添加连续的堆叠方块（层级从1开始，底层已经是0）
+                        for layer in range(1, stack_height + 1):
+                            positions.append((x, y, layer))
+                
+                random.shuffle(positions)
+            else:
+                # 使用提供的层级列表
+                positions = []
+                for i in range(num_tiles):
+                    x = random.randint(0, rows - 1)
+                    y = random.randint(0, cols - 1)
+                    layer = layers[i]
+                    positions.append((x, y, layer))
+        else:
+            # 使用配置的方块布局
+            tile_types = []
+            positions = []
+            
+            for tile_info in level_tiles:
+                tile_types.append(tile_info['type'])
                 x = tile_info['x']
                 y = tile_info['y']
-                z = tile_info.get('z', 0)
+                # 如果指定了层，则使用配置的层
                 layer = tile_info.get('layer', 0)
-                tile_type = tile_info['type']
-                
-                # 在数据库中创建方块
-                tile = Tile.objects.create(
-                    game_session=self.game_session,
-                    tile_type=tile_type,
-                    position_x=x,
-                    position_y=y,
-                    position_z=z,
-                    layer=layer
-                )
-                
-                # 添加到本地游戏板
-                key = f"{x},{y},{layer}"
-                board[key] = {
-                    'id': tile.tile_id,
-                    'type': tile_type,
-                    'x': x,
-                    'y': y,
-                    'z': z,
-                    'layer': layer
-                }
-            
-            self.board = board
-            self.buffer = []
-            self.removed_tiles = []
-            return board
+                positions.append((x, y, layer))
         
-        # 如果没有预定义布局，则生成随机布局
-        print("没有预定义布局，生成随机布局")
+        # 创建游戏板
+        board = {}
         
-        # 创建一个二维网格来跟踪每个位置的堆叠高度
-        stack_heights = [[0 for _ in range(cols)] for _ in range(rows)]
-        
-        # 计算可用的位置总数和位置
+        # 生成可用位置
         available_positions = []
+        for x, y, layer in positions:
+            # 为每个方块添加一个 z 坐标（用于 3D 效果）
+            # 使用 layer 值作为 z_pos 的基础，并加上一个唯一的增量，确保唯一性
+            z_pos = layer  # 修改：使用 layer 值作为 z_pos 以确保唯一性
+            available_positions.append((x, y, layer, z_pos))
         
-        # 首先确定每个位置的堆叠高度
-        for y in range(rows):
-            for x in range(cols):
-                # 根据关卡难度随机确定这个位置的堆叠高度
-                # 难度越高，堆叠越高
-                max_stack = random.randint(1, layers)
-                stack_heights[y][x] = max_stack
-                
-                # 为每个堆叠位置创建方块
-                for layer in range(max_stack):
-                    # 确保每个位置的z轴值不同，以满足唯一约束
-                    z_pos = layer
-                    available_positions.append((x, y, layer, z_pos))
+        # 确保先创建底层的方块再创建高层的方块，对于相同坐标的方块按层级排序
+        all_tiles = tile_types.copy()
+        available_positions.sort(key=lambda pos: (pos[0], pos[1], pos[2]))  # 按x,y,layer排序
         
-        # 完全重写方块分配逻辑，确保每种类型的方块数量都是3的倍数
+        # 创建并跟踪每个位置的堆叠方块数量
+        stacked_counts = {}  # 键是 "x,y" 格式，值是该位置下方块总数
         
-        # 首先计算总位置数
-        total_positions = len(available_positions)
-        print(f"初始总位置数: {total_positions}")
-        
-        # 确保总位置数是3的倍数
-        if total_positions % 3 != 0:
-            # 截断到最近的3的倍数
-            needed_positions = (total_positions // 3) * 3
-            available_positions = available_positions[:needed_positions]
-            total_positions = needed_positions
-            print(f"调整后的位置数: {total_positions}")
-        
-        # 计算每种类型的方块应该有多少个
-        # 确保每种类型的方块数量都是3的倍数
-        tile_types_count = len(tile_types)
-        
-        # 初始化每种类型的方块数量为0
-        tiles_distribution = {tile_type: 0 for tile_type in tile_types}
-        
-        # 计算每种类型至少应该有多少个方块（确保是3的倍数）
-        base_count_per_type = (total_positions // tile_types_count) // 3 * 3
-        remaining_positions = total_positions - (base_count_per_type * tile_types_count)
-        
-        print(f"每种类型基础方块数: {base_count_per_type}")
-        print(f"剩余位置数: {remaining_positions}")
-        
-        # 为每种类型分配基础数量的方块
-        for tile_type in tile_types:
-            tiles_distribution[tile_type] = base_count_per_type
-        
-        # 分配剩余的位置（确保每次分配3个，保持3的倍数）
-        remaining_types = list(tile_types)
-        while remaining_positions >= 3:
-            # 随机选择一种类型
-            if not remaining_types:
-                remaining_types = list(tile_types)
-            tile_type = random.choice(remaining_types)
-            remaining_types.remove(tile_type)
-            
-            # 为这种类型增加3个方块
-            tiles_distribution[tile_type] += 3
-            remaining_positions -= 3
-        
-        # 验证分配是否正确
-        total_tiles = sum(tiles_distribution.values())
-        print(f"总方块数: {total_tiles}, 需要的位置数: {total_positions}")
-        
-        if total_tiles != total_positions:
-            raise ValueError(f"分配错误: 总方块数 {total_tiles} 不等于需要的位置数 {total_positions}")
-        
-        # 验证每种类型的方块数量是否是3的倍数
-        for tile_type, count in tiles_distribution.items():
-            if count % 3 != 0:
-                raise ValueError(f"分配错误: 类型 {tile_type} 的方块数 {count} 不是3的倍数")
-            print(f"验证通过: 类型 {tile_type} 的方块数 {count} 是3的倍数")
-        
-        # 创建所有方块类型的列表
-        all_tiles = []
-        for tile_type, count in tiles_distribution.items():
-            all_tiles.extend([tile_type] * count)
-        
-        # 打乱方块类型
-        random.shuffle(all_tiles)
-        
-        # 放置方块到游戏板上
+        # 放置方块到游戏板上，按位置和层级排序
         for i, (x, y, layer, z_pos) in enumerate(available_positions):
             if i >= len(all_tiles):
                 break
                 
             tile_type = all_tiles[i]
             
+            # 跟踪堆叠方块数量
+            pos_key = f"{x},{y}"
+            if pos_key not in stacked_counts:
+                stacked_counts[pos_key] = 1
+            else:
+                stacked_counts[pos_key] += 1
+            
             # 在数据库中创建方块
-            tile = Tile.objects.create(
-                game_session=self.game_session,
-                tile_type=tile_type,
-                position_x=x,
-                position_y=y,
-                position_z=z_pos,
-                layer=layer
-            )
+            # 确保 position_z 值是唯一的 - 对每个位置使用一个唯一的组合
+            # 使用 layer 作为 position_z 可能导致唯一约束错误，如果在同一个x,y位置有相同层级的方块
+            try:
+                tile = Tile.objects.create(
+                    game_session=self.game_session,
+                    tile_type=tile_type,
+                    position_x=x,
+                    position_y=y,
+                    position_z=i,  # 使用循环索引 i 作为 position_z 以确保唯一性
+                    layer=layer
+                )
+            except Exception as e:
+                print(f"创建方块失败: {e}")
+                # 如果创建失败，尝试修改position_z并重试
+                tile = Tile.objects.create(
+                    game_session=self.game_session,
+                    tile_type=tile_type,
+                    position_x=x,
+                    position_y=y,
+                    position_z=random.randint(1000, 9999),  # 使用一个大随机数确保唯一
+                    layer=layer
+                )
             
             # 添加到本地游戏板
             key = f"{x},{y},{layer}"
@@ -237,9 +206,34 @@ class GameBoard:
                 'type': tile_type,
                 'x': x,
                 'y': y,
-                'z': z_pos,
+                'z': tile.position_z,  # 使用实际创建的 position_z
                 'layer': layer
             }
+            
+            # 打印堆叠信息
+            if layer > 0:
+                # 检查是否有底层方块
+                has_lower_layer = False
+                for l in range(layer):
+                    lower_key = f"{x},{y},{l}"
+                    if lower_key in board:
+                        has_lower_layer = True
+                        break
+                
+                if has_lower_layer:
+                    print(f"创建堆叠方块: 位置=({x},{y},{layer}), 类型={tile_type}, 有底层方块")
+                else:
+                    print(f"警告: 创建堆叠方块: 位置=({x},{y},{layer}), 类型={tile_type}, 没有底层方块")
+        
+        # 初始化完成后，计算并添加每个方块的下层方块数量
+        for key, tile_data in board.items():
+            x, y, layer = map(int, key.split(','))
+            lower_tiles_count = self.get_lower_tiles_count(x, y, layer)
+            tile_data['lower_tiles_count'] = lower_tiles_count
+            
+            # 打印方块堆叠信息
+            if lower_tiles_count > 0:
+                print(f"方块({x},{y},{layer})下方有{lower_tiles_count}个方块")
         
         self.board = board
         self.buffer = []
@@ -248,10 +242,10 @@ class GameBoard:
 
     def is_tile_accessible(self, x, y, layer):
         """
-        Check if a tile is accessible (only first and second layer are accessible and not covered)
+        Check if a tile is accessible (only tiles up to layer 3 are accessible and not covered)
         """
-        # 只有第一层和第二层的方块可以被访问
-        if layer > 2:  # 修改为允许第三层(layer=2)的方块也可以被访问
+        # 只有前三层的方块可以被访问 (layer 0, 1, 2)
+        if layer > 2:  
             print(f"方块({x},{y},{layer})不可访问: 层级 > 2")
             return False
             
@@ -282,6 +276,20 @@ class GameBoard:
         key = f"{x},{y},{layer}"
         return self.board.get(key)
     
+    def get_lower_tiles_count(self, x, y, layer):
+        """
+        获取指定位置和层级下方的方块数量
+        """
+        count = 0
+        # 检查所有可能的下层，确保连续性
+        for l in range(layer):
+            key = f"{x},{y},{l}"
+            if key in self.board:
+                count += 1
+            else:
+                # 如果发现缺少层，说明不连续，应该记录警告
+                print(f"警告：位置({x},{y})在层级{l}没有方块，但层级{layer}有方块")
+        return count
 
     def select_tile(self, tile_id):
         """选择一个方块并将其移动到缓冲区"""
@@ -289,6 +297,21 @@ class GameBoard:
         try:
             tile = Tile.objects.get(tile_id=tile_id, game_session=self.game_session)
             print(f"选中方块: ID={tile.tile_id}, 位置=({tile.position_x},{tile.position_y},{tile.layer}), 类型={tile.tile_type}")
+            
+            # 获取下层方块数量，确认这是用户看到的数字
+            lower_tiles_count = self.get_lower_tiles_count(tile.position_x, tile.position_y, tile.layer)
+            print(f"方块({tile.position_x},{tile.position_y},{tile.layer})下方有{lower_tiles_count}个方块")
+            
+            # 在移除前预先查找下层方块，以便后续处理
+            lower_tiles = []
+            for l in range(tile.layer-1, -1, -1):
+                lower_key = f"{tile.position_x},{tile.position_y},{l}"
+                if lower_key in self.board:
+                    lower_tiles.append(self.board[lower_key])
+                    print(f"预先找到下层方块: 位置=({tile.position_x},{tile.position_y},{l}), 类型={self.board[lower_key]['type']}")
+                    
+            print(f"预先找到{len(lower_tiles)}个下层方块")
+            
         except Tile.DoesNotExist:
             print(f"找不到方块: ID={tile_id}")
             return False
@@ -303,7 +326,7 @@ class GameBoard:
             print("缓冲区已满，无法添加更多方块")
             return False
         
-        # 添加到缓冲区
+        # 创建方块数据
         tile_data = {
             'id': tile.tile_id,
             'type': tile.tile_type,
@@ -311,8 +334,22 @@ class GameBoard:
             'y': tile.position_y,
             'layer': tile.layer
         }
-        self.buffer.append(tile_data)
-        print(f"方块已添加到缓冲区: ID={tile.tile_id}, 位置=({tile.position_x},{tile.position_y},{tile.layer})")
+        
+        # 查找相同类型的方块在缓冲区中的位置
+        same_type_indices = []
+        for i, buffer_tile in enumerate(self.buffer):
+            if buffer_tile['type'] == tile.tile_type:
+                same_type_indices.append(i)
+        
+        # 如果找到相同类型的方块，将新方块插入到最后一个相同类型方块的后面
+        if same_type_indices:
+            last_same_type_index = same_type_indices[-1]
+            self.buffer.insert(last_same_type_index + 1, tile_data)
+            print(f"方块已插入到缓冲区位置 {last_same_type_index + 1}: ID={tile.tile_id}, 类型={tile.tile_type}")
+        else:
+            # 如果没有相同类型的方块，则添加到缓冲区末尾
+            self.buffer.append(tile_data)
+            print(f"方块已添加到缓冲区末尾: ID={tile.tile_id}, 类型={tile.tile_type}")
         
         # 从方块区移除
         key = f"{tile.position_x},{tile.position_y},{tile.layer}"
@@ -333,11 +370,56 @@ class GameBoard:
         # 保存缓冲区状态到数据库
         self.save_buffer_state()
         
+        # 更新下层方块的可访问性
+        # 之前方块位置的下一层方块现在应该变得可访问
+        print(f"检查位置({tile.position_x},{tile.position_y})的下层方块是否变得可访问")
+        
+        # 获取被选中方块下层的所有方块
+        found_lower_tiles = []
+        for l in range(tile.layer - 1, -1, -1):
+            lower_key = f"{tile.position_x},{tile.position_y},{l}"
+            if lower_key in self.board:
+                found_lower_tiles.append((l, self.board[lower_key]))
+                print(f"发现下层方块: 位置=({tile.position_x},{tile.position_y},{l}), 类型={self.board[lower_key]['type']}")
+                # 立即标记为可访问（不需要等待is_tile_accessible检查）
+                self.board[lower_key]['newly_exposed'] = True
+        
+        # 打印找到的下层方块数量
+        print(f"共找到{len(found_lower_tiles)}个下层方块")
+        
+        # 确保最上层的下层方块现在变为可访问
+        if found_lower_tiles:
+            # 获取最上层的下层方块（层级最高的）
+            top_lower_layer = max([layer for layer, _ in found_lower_tiles])
+            top_lower_key = f"{tile.position_x},{tile.position_y},{top_lower_layer}"
+            
+            # 确保没有其他方块覆盖它
+            is_accessible = True
+            for l in range(top_lower_layer + 1, 10):  # 假设最多10层
+                check_key = f"{tile.position_x},{tile.position_y},{l}"
+                if check_key in self.board:
+                    is_accessible = False
+                    print(f"警告：最上层的下层方块{top_lower_key}被{check_key}覆盖，可能不可访问")
+                    break
+            
+            if is_accessible:
+                print(f"最上层的下层方块现在可访问: {top_lower_key}")
+                # 这里可以添加额外的处理逻辑
+            
         # 检查是否有新的可访问方块
         print("检查是否有新的可访问方块:")
+        # 记录移除前不可访问的方块
+        inaccessible_before = set()
         for board_key, board_tile in self.board.items():
             x, y, layer = map(int, board_key.split(','))
-            if self.is_tile_accessible(x, y, layer):
+            if not self.is_tile_accessible(x, y, layer):
+                inaccessible_before.add(board_key)
+        
+        # 移除方块后，重新检查所有方块的可访问性
+        for board_key, board_tile in self.board.items():
+            x, y, layer = map(int, board_key.split(','))
+            # 如果方块之前不可访问但现在可访问，标记为新可访问
+            if board_key in inaccessible_before and self.is_tile_accessible(x, y, layer):
                 print(f"方块现在可访问: ID={board_tile['id']}, 位置=({x},{y},{layer}), 类型={board_tile['type']}")
         
         return True
@@ -426,8 +508,21 @@ class GameBoard:
         # 从移出区移除
         removed_tile = self.removed_tiles.pop(target_index)
         
-        # 添加到栅栏
-        self.buffer.append(removed_tile)
+        # 查找相同类型的方块在缓冲区中的位置
+        same_type_indices = []
+        for i, buffer_tile in enumerate(self.buffer):
+            if buffer_tile['type'] == removed_tile['type']:
+                same_type_indices.append(i)
+        
+        # 如果找到相同类型的方块，将返回的方块插入到最后一个相同类型方块的后面
+        if same_type_indices:
+            last_same_type_index = same_type_indices[-1]
+            self.buffer.insert(last_same_type_index + 1, removed_tile)
+            print(f"移出的方块已插入到缓冲区位置 {last_same_type_index + 1}: ID={removed_tile['id']}, 类型={removed_tile['type']}")
+        else:
+            # 如果没有相同类型的方块，则添加到缓冲区末尾
+            self.buffer.append(removed_tile)
+            print(f"移出的方块已添加到缓冲区末尾: ID={removed_tile['id']}, 类型={removed_tile['type']}")
         
         # 保存缓冲区状态到数据库
         self.save_buffer_state()
@@ -482,6 +577,24 @@ class GameBoard:
             
             # 保存缓冲区状态到数据库
             self.save_buffer_state()
+            
+            # 检查是否有新的可访问方块状态变化
+            # 记录放回前可访问的方块
+            accessible_before = set()
+            for board_key, board_tile in self.board.items():
+                x, y, layer = map(int, board_key.split(','))
+                if self.is_tile_accessible(x, y, layer):
+                    accessible_before.add(board_key)
+            
+            # 重新检查所有方块的可访问性
+            for board_key, board_tile in self.board.items():
+                x, y, layer = map(int, board_key.split(','))
+                is_accessible_now = self.is_tile_accessible(x, y, layer)
+                
+                # 如果方块之前可访问但现在不可访问，或者之前不可访问但现在可访问
+                if (board_key in accessible_before and not is_accessible_now) or \
+                   (board_key not in accessible_before and is_accessible_now):
+                    print(f"方块可访问性变化: ID={board_tile['id']}, 位置=({x},{y},{layer}), 类型={board_tile['type']}, 可访问={is_accessible_now}")
             
             return True
         except Tile.DoesNotExist:
