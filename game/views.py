@@ -333,3 +333,37 @@ def abandon_game(request, session_id):
         session.save()
     
     return redirect('game_home')
+
+@login_required
+def save_game_time(request, session_id):
+    """
+    Save the game time from frontend
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests allowed'}, status=400)
+    
+    player = request.user.player
+    session = get_object_or_404(GameSession, session_id=session_id, player=player)
+    
+    try:
+        data = json.loads(request.body)
+        game_time = data.get('game_time', 0)
+        
+        if game_time > 0:
+            # 计算结束时间
+            start_time = session.start_time
+            end_time = start_time + timezone.timedelta(seconds=game_time)
+            
+            # 更新会话
+            session.end_time = end_time
+            session.save()
+            
+            return JsonResponse({
+                'success': True,
+                'game_time': game_time
+            })
+        else:
+            return JsonResponse({'error': 'Invalid game time'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
