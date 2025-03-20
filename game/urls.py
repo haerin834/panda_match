@@ -9,4 +9,5 @@ urlpatterns = [
     path('action/<int:session_id>/', views.game_action, name='game_action'),
     path('result/<int:session_id>/', views.game_result, name='game_result'),
     path('abandon/<int:session_id>/', views.abandon_game, name='abandon_game'),
+    path('save_time/<int:session_id>/', views.save_game_time, name='save_game_time'),
 ]
